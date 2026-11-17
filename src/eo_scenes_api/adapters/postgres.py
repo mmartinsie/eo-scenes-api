@@ -11,7 +11,7 @@ metadata = MetaData()
 scenes_table = Table(
     "scenes",
     metadata,
-    Column("id", String, primary_key=True),
+    Column("id", String(collation="C"), primary_key=True),
     Column("collection", String, nullable=False),
     Column("acquired", DateTime(timezone=True), nullable=False, index=True),
     Column("west", Float, nullable=False),

@@ -80,3 +80,47 @@ architecture.
   (`limit=abc`) gets FastAPI's default 422.
 - **Alternative:** one status code and one error format for both.
 - **Why not yet:** it is planned with RFC 9457 problem details (Day 2).
+
+### SQLAlchemy Core, not the ORM
+
+- **Choice:** the table is described with `Table` and `Column`, queries are
+  built with `select` and `insert`, and the adapter maps rows to the domain
+  dataclasses by hand.
+- **Alternative:** the SQLAlchemy ORM, with mapped classes and a `Session`.
+- **Why not:** the domain already has its own dataclasses. The ORM would add a
+  second model of a scene and a unit of work that two queries do not need. Core
+  keeps the SQL visible.
+
+### A bbox is four float columns, not PostGIS
+
+- **Choice:** `west`, `south`, `east` and `north` are `FLOAT` columns. The
+  intersection is four comparisons in the `WHERE`, the same rule as
+  `BBox.intersects`.
+- **Alternative:** a PostGIS geometry column with `ST_Intersects` and a GiST
+  index.
+- **Why not:** for axis-aligned boxes, comparing numbers is enough, and PostGIS
+  has to be enabled separately on Azure Database for PostgreSQL. Trade-off:
+  there is no spatial index. If real scene footprints (polygons) were needed,
+  PostGIS would be the next step.
+
+### Inserts are idempotent
+
+- **Choice:** `INSERT ... ON CONFLICT (id) DO NOTHING`. `add_many` returns how
+  many rows were actually inserted, so inserting the same batch twice returns 0
+  the second time.
+- **Alternatives:** a plain `INSERT` that fails on duplicates, or an upsert
+  (`ON CONFLICT DO UPDATE`).
+- **Why not:** harvesting the same items twice must be harmless, not an error.
+  A stored scene is treated as immutable. If the source starts correcting
+  metadata for existing ids, an upsert is the change to make.
+
+### Scene ids use the "C" collation
+
+- **Choice:** the `id` column is `COLLATE "C"`: ids are compared byte by byte.
+- **Alternative:** the database default (`en_US.utf8` in the Docker image).
+- **Why not:** the default sorts like a dictionary and ignores punctuation and
+  case on the first pass. Python compares code points. Scenes with the same
+  `acquired` were therefore ordered differently by PostgreSQL and by the
+  in-memory adapter. A parity check that runs the same queries against both
+  adapters found it. With "C" they agree, comparisons are cheaper, and the
+  order is predictable for keyset pagination.
