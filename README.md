@@ -61,3 +61,22 @@ architecture.
 - **Why not:** "from 1 to 3 November" includes scenes taken exactly at either
   bound, which is what a user expects. Trade-off: with consecutive windows that
   share a bound, a scene exactly on it appears in both.
+
+### The app is built by a factory that receives the repository
+
+- **Choice:** `create_app(repository)` defines the routes inside the function,
+  so they use the repository they were given. Tests pass the in-memory adapter;
+  `main.py` passes the PostgreSQL one.
+- **Alternative:** FastAPI `Depends` with a provider function, replaced in tests
+  through `app.dependency_overrides`.
+- **Why not:** the provider needs module-level state and tests need an override
+  mechanism. With the factory the dependency is explicit and each test builds
+  its own app.
+
+### Invalid input: 400 for domain rules, 422 for types (temporary)
+
+- **Choice:** a value that breaks a domain rule (`limit=0`, `bbox=10,0,5,1`)
+  gets 400 with the domain's message. A value of the wrong type
+  (`limit=abc`) gets FastAPI's default 422.
+- **Alternative:** one status code and one error format for both.
+- **Why not yet:** it is planned with RFC 9457 problem details (Day 2).
