@@ -41,3 +41,23 @@ architecture.
 - **Why not:** guessing hides client mistakes. Without the check, comparing a
   naive datetime with the timezone-aware `acquired` raises `TypeError`, which
   would be a 500.
+
+### Ports are `typing.Protocol`, not abstract base classes
+
+- **Choice:** `SceneRepository` is a `Protocol`. Adapters implement its methods
+  without inheriting from it or importing it.
+- **Alternative:** an `abc.ABC` with `@abstractmethod`.
+- **Why not:** an ABC forces every adapter to inherit from a class in the core.
+  With a `Protocol` they are fully decoupled (structural typing). Trade-off:
+  conformance is checked by a static type checker, not at runtime. The project
+  does not run one yet, so today the tests are what check the adapters; adding
+  pyright to CI is the next step.
+
+### Date filters are inclusive
+
+- **Choice:** a scene matches when `start <= acquired <= end`. The in-memory and
+  PostgreSQL adapters use the same operators.
+- **Alternative:** a half-open interval, `start <= acquired < end`.
+- **Why not:** "from 1 to 3 November" includes scenes taken exactly at either
+  bound, which is what a user expects. Trade-off: with consecutive windows that
+  share a bound, a scene exactly on it appears in both.
